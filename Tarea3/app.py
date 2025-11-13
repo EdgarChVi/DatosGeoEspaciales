@@ -488,7 +488,12 @@ st_folium(m, height=500, use_container_width=True)
 # 13) SECCIÓN 4 — CAMBIO TEMPORAL (ΔRGB) + MAPAS
 # ----------------------------
 
-thr_delta = 30
+# Factor de reducción solo para mapas 
+FACTOR_MAP = 4  
+
+arr06_map = arr06[:, ::FACTOR_MAP, ::FACTOR_MAP]
+arr15_map = arr15[:, ::FACTOR_MAP, ::FACTOR_MAP]
+
 st.header("Cambio temporal — Métrica ΔRGB y transición de clases")
 
 st.write("Se muestra primero las imagenes originales y sus clasificaciones respectivas, " \
@@ -499,9 +504,9 @@ delta = delta_rgb_mean(arr06, arr15)  # (rows, cols)
 
 st.subheader("Mapas de clasificación completa y diferencias")
 
-# Clasificación imágenes completas
-labels06, metrics06 = classify_rgb_image(arr06, params)
-labels15, metrics15 = classify_rgb_image(arr15, params)
+# Clasificación imágenes reducidas para mapas
+labels06_map, metrics06_map = classify_rgb_image(arr06_map, params)
+labels15_map, metrics15_map = classify_rgb_image(arr15_map, params)
 
 # --- Fila superior: originales ---
 col1, col2 = st.columns(2)
@@ -518,16 +523,16 @@ with col2:
 col3, col4 = st.columns(2)
 with col3:
     st.subheader("2006 — Clasificación")
-    fig_c6 = render_class_colorramp_simple(arr06, labels06, meta06["bounds"], metrics=metrics06)
+    fig_c6 = render_class_colorramp_simple(arr06_map, labels06_map, meta06["bounds"], metrics=metrics06_map)
     st.pyplot(fig_c6, clear_figure=True)
 with col4:
     st.subheader("2015 — Clasificación")
-    fig_c15 = render_class_colorramp_simple(arr15, labels15, meta15["bounds"], metrics=metrics15)
+    fig_c15 = render_class_colorramp_simple(arr15_map, labels15_map, meta15["bounds"], metrics=metrics15_map)
     st.pyplot(fig_c15, clear_figure=True)
 
 # --- Debajo: diferencias en B/N ---
 st.subheader("Diferencias de clase — Negro: igual, Blanco: distinto")
-diff_img = difference_map(labels06, labels15)
+diff_img = difference_map(labels06_map, labels15_map)
 fig_diff = plot_diff_map(diff_img, meta06["bounds"], " ")
 st.pyplot(fig_diff, clear_figure=True)
 
