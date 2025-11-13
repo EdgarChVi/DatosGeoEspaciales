@@ -30,7 +30,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Tema oscuro (forzado por CSS simple)
+# Tema oscuro 
 st.markdown("""
 <style>
 :root { color-scheme: dark; }
@@ -45,18 +45,18 @@ st.title("Análisis de cambio por color (RGB) — San Ramón (2006 vs 2015)")
 RUTA_2006 = "data/SanRamon_06-07.tif"
 RUTA_2015 = "data/SanRamon_15-18.tif"
 
-CLASSES = ["Suelo/Bare", "Agua/Sombra", "Vegetación", "Urbano/Construcción", "Indefinido"]
+CLASSES = ["Suelo", "Agua/Sombra", "Vegetación", "Urbano/Construcción", "Indefinido"]
 
 CMAPS = {
     "Vegetación": mcolors.LinearSegmentedColormap.from_list("veg", ["#F5FFF5", "#021402"]),     # verde claro → oscuro
-    "Suelo/Bare": mcolors.LinearSegmentedColormap.from_list("soil", ["#FAECD3", "#4B2204"]),    # arena → café
+    "Suelo": mcolors.LinearSegmentedColormap.from_list("soil", ["#FAECD3", "#4B2204"]),    # arena → café
     "Urbano/Construcción": mcolors.LinearSegmentedColormap.from_list("urb", ["#E6E6E6", "#411212"]), # gris claro → oscuro
     "Agua/Sombra": mcolors.LinearSegmentedColormap.from_list("water", ["#89AFD4", "#232379"]),  # azul claro → profundo
     "Indefinido": None
 }
 
 CLASS_COLORS = {
-    "Suelo/Bare":           (210, 140,  80),   # marrón
+    "Suelo":                (210, 140,  80),   # marrón
     "Agua/Sombra":          ( 30,  30,  60),   # azul oscuro / sombra
     "Vegetación":           ( 34, 139,  34),   # verde bosque
     "Urbano/Construcción":  (200, 200, 200),   # gris claro
@@ -76,7 +76,7 @@ DEFAULT_PARAMS = {
     "sat_soil": 0.07,  # S mínima para Suelo
 }
 
-params = DEFAULT_PARAMS  # <-- única vez
+params = DEFAULT_PARAMS 
 
 # ----------------------------
 # 4) FUNCIONES — AJUSTE VISUAL (SATURACIÓN)
@@ -98,7 +98,7 @@ def ajustar_saturacion(arr, factor=1.2):
     rgb_sat = hsv_to_rgb(hsv)
     arr_out = (np.transpose(rgb_sat, (2, 0, 1)) * 255).astype(np.uint8)
 
-    # Mantener banda alpha si existe
+    # Mantener banda alpha
     if arr.shape[0] == 4:
         arr_out = np.vstack([arr_out, arr[3:4]])
 
@@ -110,8 +110,7 @@ def ajustar_saturacion(arr, factor=1.2):
 def classify_rgb_image(arr, params):
     """
     Clasifica TODO el raster por píxel usando las mismas reglas de clasificar_rgb_df.
-    Devuelve:
-      labels: ndarray int16 (rows, cols) con códigos [0..4] según CLASSES; -1 = NoData (alpha=0)
+    Devuelve array de labels (rows, cols) y métricas intermedias (R,G,B,H,S,V,ExG).
     """
     bands, rows, cols = arr.shape
     R = arr[0].astype(np.float32)
@@ -133,13 +132,13 @@ def classify_rgb_image(arr, params):
     soil  = (R > G) & (R > B) & (S >= params["sat_soil"])
 
     labels = np.full((rows, cols), CLASSES.index("Indefinido"), dtype=np.int16)
-    labels[soil]  = CLASSES.index("Suelo/Bare")
+    labels[soil]  = CLASSES.index("Suelo")
     labels[urban] = CLASSES.index("Urbano/Construcción")
     labels[veg]   = CLASSES.index("Vegetación")
     labels[water] = CLASSES.index("Agua/Sombra")
     labels[~valid] = -1
 
-    # Devolvemos también métricas por si querés verlas
+    
     return labels, (R, G, B, H, S, V, exg)
 
 def clasificar_rgb_df(df, params):
@@ -148,7 +147,7 @@ def clasificar_rgb_df(df, params):
       - Vegetación: ExG = 2G - R - B >= exg_thr  O  (H en 60±hue_tol y S>=sat_min)
       - Agua/Sombra: V < v_dark
       - Urbano/Construcción: S < sat_urban y V >= v_bright
-      - Suelo/Bare: R dominante (R>G & R>B) y S>=sat_soil
+      - Suelo: R dominante (R>G & R>B) y S>=sat_soil
       - Otro: 'Indefinido'
     """
     R = df["R"].values
@@ -174,7 +173,7 @@ def clasificar_rgb_df(df, params):
     clase = np.where(veg, "Vegetación",
              np.where(water_shadow, "Agua/Sombra",
              np.where(urban, "Urbano/Construcción",
-             np.where(soil, "Suelo/Bare", "Indefinido"))))
+             np.where(soil, "Suelo", "Indefinido"))))
 
     df_out = df.copy()
     df_out["Clase"] = clase
@@ -231,7 +230,7 @@ def render_class_colorramp_simple(arr, labels, bounds, metrics=None):
 
     # Máscaras
     m_veg   = labels == CLASSES.index("Vegetación")
-    m_soil  = labels == CLASSES.index("Suelo/Bare")
+    m_soil  = labels == CLASSES.index("Suelo")
     m_urb   = labels == CLASSES.index("Urbano/Construcción")
     m_water = labels == CLASSES.index("Agua/Sombra")
     m_undef = labels == CLASSES.index("Indefinido")
@@ -246,7 +245,7 @@ def render_class_colorramp_simple(arr, labels, bounds, metrics=None):
     # Suelo → R en [0..255]
     if m_soil.any():
         s = np.clip(R/255.0, 0, 1)
-        rgb = CMAPS["Suelo/Bare"](s)[..., :3]
+        rgb = CMAPS["Suelo"](s)[..., :3]
         out[m_soil] = rgb[m_soil]
 
     # Urbano → V en [0..1]
@@ -287,7 +286,7 @@ def difference_map(labels06, labels15):
     Devuelve una imagen binaria (uint8) donde:
       0 = negro (misma clase)
       255 = blanco (clase distinta)
-    Ignora NoData: si cualquiera de los dos es -1, saldrá 255 (tratado como 'diferente' para que no contamine)
+    Ignora NoData: si cualquiera de los dos es -1, saldrá 255 (tratado como "diferente")
     """
     h, w = labels06.shape
     same = (labels06 == labels15) & (labels06 != -1) & (labels15 != -1)
@@ -420,10 +419,10 @@ try:
     arr06, meta06 = cargar_raster(RUTA_2006)
     arr15, meta15 = cargar_raster(RUTA_2015)
     # Ajuste de saturación (ejemplo aplicado a 2006-2007)
-    arr06 = ajustar_saturacion(arr06, factor=1.8)  # 40% más saturado
-    arr15 = ajustar_saturacion(arr15, factor=1.1)
+    arr06 = ajustar_saturacion(arr06, factor=1.8)  # 80% más saturado
+    arr15 = ajustar_saturacion(arr15, factor=1.01)
 except Exception as e:
-    st.error(f"No se pudieron cargar los GeoTIFF. Verifica rutas en app.py. Detalle: {e}")
+    st.error(f"No se pudieron cargar los GeoTIFF. Revisar existencia de archivos. Detalle: {e}")
     st.stop()
 
 # ----------------------------
@@ -437,7 +436,7 @@ else:
     df_px = sample_pixels(arr15, meta15["transform"], n=n_muestra)
 
 if df_px.empty:
-    st.warning("No se pudieron muestrear píxeles (¿banda alpha enmascara todo?).")
+    st.warning("No se pudieron muestrear píxeles.")
 else:
     df_cls = clasificar_rgb_df(df_px, params)
     st.dataframe(df_cls, use_container_width=True, hide_index=True)
@@ -518,32 +517,3 @@ diff_img = difference_map(labels06, labels15)
 fig_diff = plot_diff_map(diff_img, meta06["bounds"], "Diferencias de clase — Negro: igual, Blanco: distinto")
 st.pyplot(fig_diff, clear_figure=True)
 
-
-# máscara de cambio significativo
-mask_change = delta > thr_delta
-pct_change = 100.0 * (mask_change.sum() / mask_change.size)
-st.markdown(f"**Umbral ΔRGB:** {thr_delta} — **Píxeles con cambio:** {pct_change:.2f}% (sobre toda la imagen)")
-
-# Mapa rápido del ΔRGB (solo de referencia visual)
-fig2, ax2 = plt.subplots(figsize=(7, 5))
-im = ax2.imshow(delta, vmin=0, vmax=255)
-ax2.set_title("Mapa ΔRGB (promedio absoluto de diferencias)")
-ax2.axis("off")
-plt.colorbar(im, ax=ax2, fraction=0.046, pad=0.04, label="ΔRGB")
-st.pyplot(fig2, clear_figure=True)
-
-# Transición de clases (muestra aleatoria)
-st.markdown("**Transición de clases (muestra aleatoria) 2006 → 2015**")
-
-df_px06 = sample_pixels(arr06, meta06["transform"], n=n_muestra, seed=123)
-df_px15 = sample_pixels(arr15, meta15["transform"], n=n_muestra, seed=123)  # mismas posiciones aproximadas si footprints iguales
-
-if not df_px06.empty and not df_px15.empty:
-    c06 = clasificar_rgb_df(df_px06, params)["Clase"]
-    c15 = clasificar_rgb_df(df_px15, params)["Clase"]
-    trans = pd.crosstab(c06, c15, rownames=["2006–2007"], colnames=["2015–2018"])
-    st.dataframe(trans, use_container_width=True)
-else:
-    st.info("No fue posible calcular la transición de clases en la muestra (muestras vacías).")
-
-st.caption("Nota: La clasificación es orientativa (RGB). Para precisión temática se requiere NIR/índices espectrales o modelos supervisados.")
