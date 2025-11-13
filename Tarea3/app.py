@@ -39,6 +39,11 @@ st.markdown("""
 
 st.title("Análisis de cambio por color (RGB) — San Ramón (2006 vs 2015)")
 
+st.write("El objetivo del proyecto en desarrollo, o con los datos obtenidos, es lograr determinar los " \
+            "cambios en la geografía de una zona con el paso del tiempo. Por ejemplo, si en una zona forestal, el bosque " \
+            "fue cortado, alguna zona fue urbanizada, o cualquier cambio significante que se presente.")
+
+
 # ----------------------------
 # 3) RUTAS, CLASES Y PALETAS
 # ----------------------------
@@ -277,7 +282,8 @@ def render_class_colorramp_simple(arr, labels, bounds, metrics=None):
         else:
             color = CMAPS[cls](0.6)[0:3]  # color medio del gradiente
         legend_handles.append(Patch(facecolor=color, edgecolor='k', label=cls))
-    ax.legend(handles=legend_handles, loc="lower right", fontsize=8, frameon=True)
+    ax.legend(handles=legend_handles, loc="lower center", bbox_to_anchor=(0.5, -0.15), fontsize=8, frameon=True, ncol=len(legend_handles))
+    plt.tight_layout()
 
     return fig
 
@@ -304,7 +310,8 @@ def plot_diff_map(diff_img, bounds, title):
     # leyenda manual: negro=igual, blanco=diferente
     legend_patches = [Patch(facecolor='black', edgecolor='k', label='Misma clase'),
                       Patch(facecolor='white', edgecolor='k', label='Clase diferente')]
-    ax.legend(handles=legend_patches, loc="lower right", fontsize=8, frameon=True)
+    ax.legend(handles=legend_patches, loc="lower center", bbox_to_anchor=(0.5, -0.15), fontsize=8, frameon=True, ncol=len(legend_patches))
+    plt.tight_layout()
     return fig
 
 def plot_rgb_map(arr, bounds, title):
@@ -429,6 +436,8 @@ except Exception as e:
 # 10) SECCIÓN 1 — TABLA INTERACTIVA (MUESTRA)
 # ----------------------------
 st.header("Tabla interactiva — Muestra de píxeles clasificados")
+st.write("Se muestra una muestra aleatoria de píxeles válidos (no NoData) del raster seleccionado. " \
+            "Donde se muestra la ubicación (x,y) y los valores RGB originales junto con la clase asignada según las reglas definidas.")
 
 if anio.startswith("2006"):
     df_px = sample_pixels(arr06, meta06["transform"], n=n_muestra)
@@ -441,9 +450,6 @@ else:
     df_cls = clasificar_rgb_df(df_px, params)
     st.dataframe(df_cls, use_container_width=True, hide_index=True)
 
-    # Resumen de clases
-    st.markdown("**Distribución de clases (muestra):**")
-    st.write(df_cls["Clase"].value_counts().rename_axis("Clase").to_frame("Pixeles").reset_index())
 
 # ----------------------------
 # 11) SECCIÓN 2 — HISTOGRAMA RGB
@@ -457,7 +463,7 @@ else:
 # ----------------------------
 # 12) SECCIÓN 3 — MAPA INTERACTIVO (FOOTPRINTS)
 # ----------------------------
-st.header("Mapa interactivo — Footprints de los GeoTIFF (Folium)")
+st.header("Mapa interactivo — Ubicación de imágenes.")
 
 fp06 = raster_bounds_gdf(RUTA_2006)
 fp15 = raster_bounds_gdf(RUTA_2015)
@@ -483,7 +489,10 @@ st_folium(m, height=500, use_container_width=True)
 # ----------------------------
 
 thr_delta = 30
-st.header("Cambio temporal — Métrica ΔRGB y transición de clases (muestra)")
+st.header("Cambio temporal — Métrica ΔRGB y transición de clases")
+
+st.write("Se muestra primero las imagenes originales y sus clasificaciones respectivas, " \
+            "y luego un mapa de diferencias donde se indica en blanco los píxeles que cambiaron de clase ")
 
 # ΔRGB (promedio absoluto de diferencias por píxel)
 delta = delta_rgb_mean(arr06, arr15)  # (rows, cols)
@@ -497,23 +506,28 @@ labels15, metrics15 = classify_rgb_image(arr15, params)
 # --- Fila superior: originales ---
 col1, col2 = st.columns(2)
 with col1:
-    fig_o6 = plot_rgb_map(arr06, meta06["bounds"], "2006–2007 — Original")
+    st.subheader("2006 — Original")
+    fig_o6 = plot_rgb_map(arr06, meta06["bounds"], " ")
     st.pyplot(fig_o6, clear_figure=True)
 with col2:
-    fig_o15 = plot_rgb_map(arr15, meta15["bounds"], "2015–2018 — Original")
+    st.subheader("2015 — Original")
+    fig_o15 = plot_rgb_map(arr15, meta15["bounds"], " ")
     st.pyplot(fig_o15, clear_figure=True)
 
 # --- Fila inferior: clasificados ---
 col3, col4 = st.columns(2)
 with col3:
+    st.subheader("2006 — Clasificación")
     fig_c6 = render_class_colorramp_simple(arr06, labels06, meta06["bounds"], metrics=metrics06)
     st.pyplot(fig_c6, clear_figure=True)
 with col4:
+    st.subheader("2015 — Clasificación")
     fig_c15 = render_class_colorramp_simple(arr15, labels15, meta15["bounds"], metrics=metrics15)
     st.pyplot(fig_c15, clear_figure=True)
 
 # --- Debajo: diferencias en B/N ---
+st.subheader("Diferencias de clase — Negro: igual, Blanco: distinto")
 diff_img = difference_map(labels06, labels15)
-fig_diff = plot_diff_map(diff_img, meta06["bounds"], "Diferencias de clase — Negro: igual, Blanco: distinto")
+fig_diff = plot_diff_map(diff_img, meta06["bounds"], " ")
 st.pyplot(fig_diff, clear_figure=True)
 
